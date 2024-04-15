@@ -1,5 +1,5 @@
-CREATE OR REPLACE TRIGGER verificar_alquiler
-BEFORE INSERT ON Alquileres_eco
+CREATE OR REPLACE TRIGGER verificar_alquiler 
+BEFORE INSERT ON Alquileres_eco 
 FOR EACH ROW
 
 DECLARE

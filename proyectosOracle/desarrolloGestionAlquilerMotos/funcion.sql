@@ -1,6 +1,5 @@
 CREATE OR REPLACE FUNCTION estado_moto (p_matricula IN VARCHAR2)
 RETURN VARCHAR2 IS
-
  -- Variable para almacenar el estado de disponibilidad de la moto.
  v_disponible CHAR(2);
 
@@ -8,7 +7,6 @@ RETURN VARCHAR2 IS
  v_estado VARCHAR2(20);
 
 BEGIN
-
  -- Seleccionar el estado de disponibilidad de la moto basado en la matrícula.
  SELECT disponible INTO v_disponible
  FROM Motos_eco

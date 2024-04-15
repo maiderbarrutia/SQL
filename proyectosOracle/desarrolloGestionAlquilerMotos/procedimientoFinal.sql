@@ -3,7 +3,7 @@ CREATE OR REPLACE PROCEDURE Registrar_Devolucion(
     p_fechadev IN Alquileres_eco.FechaFin%TYPE
 )
 AS
-    --Variables para obtener datos
+    -- Variables para obtener datos de la moto y el cliente
     v_matricula_motos Motos_eco.Matricula%TYPE;
     v_modelo_motos Motos_eco.Modelo%TYPE;
     
@@ -11,39 +11,37 @@ AS
     v_nombreCliente_clientes Clientes_eco.Nombre%TYPE;
     v_ecoPuntosCliente_clientes Clientes_eco.ecoPuntos%TYPE;
     
-    --Variables para hacer cálculos
+    -- Variables para cálculos relacionados con el alquiler
     v_diasAlquiler_Alquileres Alquileres_eco.DiasAlquiler%TYPE;
     v_precioAlquiler_Alquileres Alquileres_eco.PrecioAlquiler%TYPE;
     
     v_ecoPuntosGanados_clientes INTEGER;
     
-    --Variable para excepción
+    -- Variable para la excepción
     v_fechaInicial_Alquileres Alquileres_eco.FechaIni%TYPE;
     
-    -- Declaramos la excepción 
+    -- Declaramos la excepción para la fecha de devolución anterior a la fecha de inicio
     fecha_dev_anterior EXCEPTION;
 
 BEGIN
-    /*Calcular los días de alquiler e introducir el dato en la variable "v_diasAlquiler_Alquileres" 
-    y para la excepción obtenemos tambien la fecha inicial y la añadimos a la variable "v_fechaInicial_Alquileres" */
+    
+    -- Calcular los días de alquiler y obtener la fecha inicial para la excepción
     SELECT (p_fechadev - FechaIni), FechaIni INTO v_diasAlquiler_Alquileres, v_fechaInicial_Alquileres
     FROM Alquileres_eco
     WHERE AlquilerID = p_alquilerID;
  
-    /*EXCEPCIÓN: Verificar si la fecha de devolución es anterior a la fecha de inicio de alquiler. 
-    Si es anterior salta la exception "fecha_dev_anterior"*/
+    -- Verificar si la fecha de devolución es anterior a la fecha de inicio de alquiler
     IF p_fechadev < v_fechaInicial_Alquileres THEN
         RAISE fecha_dev_anterior;
     END IF;
 
-    -- Calcular el precio total del alquiler e introducir el dato en la variable "v_precioAlquiler_Alquileres"
-    SELECT (PrecioPorDia * v_diasAlquiler_Alquileres * (1 - Descuento)) INTO v_precioAlquiler_Alquileres
+    -- Calcular el precio total del alquiler
+    SELECT TRUNC(PrecioPorDia * v_diasAlquiler_Alquileres * (1 - Descuento)) INTO v_precioAlquiler_Alquileres
     FROM Motos_eco
     JOIN Alquileres_eco ON Motos_eco.Matricula = Alquileres_eco.Matricula
     WHERE Alquileres_eco.AlquilerID = p_alquilerID;
 
-    /*Actualizar tabla Alquileres_eco con los nuevos valores de FechaFin, DiasAlquiler y PrecioAlquiler 
-    e introducir esos valores en las variables correspondientes*/
+    -- Actualizar la tabla Alquileres_eco con los nuevos valores de FechaFin, DiasAlquiler y PrecioAlquiler
     UPDATE Alquileres_eco
     SET FechaFin = p_fechadev,
         DiasAlquiler = v_diasAlquiler_Alquileres,
@@ -51,14 +49,14 @@ BEGIN
     WHERE AlquilerID = p_alquilerID;
 
     -- Calcular ecoPuntos ganados por el alquiler
-    v_ecoPuntosGanados_clientes := v_precioAlquiler_Alquileres / 10;
+    v_ecoPuntosGanados_clientes := TRUNC(v_precioAlquiler_Alquileres / 10);
 
     -- Actualizar tabla Clientes_eco añadiendo los puntos correspondientes por el alquiler a lo que el cliente ya tenía
     UPDATE Clientes_eco
     SET ecoPuntos = ecoPuntos + v_ecoPuntosGanados_clientes
-    WHERE Dni IN (SELECT Dni FROM Alquileres_eco WHERE AlquilerID = p_alquilerID);
+    WHERE Dni = (SELECT Dni FROM Alquileres_eco WHERE AlquilerID = p_alquilerID);
     
-    -- Obtener datos y meterlos en las variables creadas para luego mostrarlos en los mensajes
+    -- Obtener datos del alquiler, la moto y el cliente
     SELECT Motos_eco.Matricula, Motos_eco.Modelo, Clientes_eco.Dni, 
     Clientes_eco.Nombre, Clientes_eco.ecoPuntos
     INTO v_matricula_motos, v_modelo_motos, v_dniCliente_clientes, 
@@ -73,16 +71,16 @@ BEGIN
     SET disponible = 'SI'
     WHERE Matricula = v_matricula_motos;
     
-    -- Mostrar mensajes de confirmación para cada actualización
+    -- Mostrar mensajes de confirmación
     DBMS_OUTPUT.PUT_LINE('La devolución del alquiler: ' || p_alquilerID || ' se ha realizado correctamente');
     DBMS_OUTPUT.PUT_LINE('La moto de matricula: ' || v_matricula_motos || ' y modelo ' || v_modelo_motos || ' ahora está disponible');
     DBMS_OUTPUT.PUT_LINE('El cliente con DNI: ' || v_dniCliente_clientes || ' y nombre: ' || v_nombreCliente_clientes || ' tiene un total de ' || v_ecoPuntosCliente_clientes || ' puntos');
 
 EXCEPTION
-    -- Salta el error en caso de que la id del alquiler de la moto no exista o no es encontrada
+    -- Manejar error si el id del alquiler no se encuentra
     WHEN NO_DATA_FOUND THEN
-        RAISE_APPLICATION_ERROR(-20001, '¡El alquiler con ID ' || p_alquilerID || ' no encontrado!');
-    -- Esto es lo que se muestra cuando salte el error en la condición empleada antes
+        RAISE_APPLICATION_ERROR(-20001, 'El alquiler con ID: ' || p_alquilerID || ' no existe.');
+    -- Manejar error si la fecha de devolución es anterior a la fecha de inicio de alquiler
     WHEN fecha_dev_anterior THEN
         RAISE_APPLICATION_ERROR(-20002, 'La devolución del Alquiler con ID: ' || p_alquilerID || ' tiene una fecha de devolución: ' || p_fechadev || ' anterior a la fecha de inicio de alquiler.');
     -- Manejar cualquier otra excepción no capturada específicamente
